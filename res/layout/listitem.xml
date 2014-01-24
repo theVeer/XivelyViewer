@@ -32,13 +32,13 @@
             android:layout_below="@+id/StreamName"
             android:text="..."
             android:textSize="40dp" />
-
-        <ImageView
-            android:id="@+id/graph"
-            android:layout_width="fill_parent"
-            android:layout_height="wrap_content" 
-            android:layout_below="@+id/Value"
-            android:layout_centerHorizontal="true"/>
+        
+		<GraphLib.LineGraph
+		    android:layout_width="match_parent"
+		    android:layout_height="200dp"
+		    android:id="@+id/linegraph"/>
+		    
+       
     </RelativeLayout>
 
 </LinearLayout>

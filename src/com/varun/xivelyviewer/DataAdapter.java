@@ -17,6 +17,8 @@ import org.apache.http.impl.client.DefaultHttpClient;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import GraphLib.Line;
+import GraphLib.LineGraph;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -43,9 +45,9 @@ public class DataAdapter extends ArrayAdapter<Datastream>
 	String response;
 	int count;
 	Context context;
-	ImageView gra;
+	LineGraph gra;
 	private static InputStream is = null;
-	private static HashMap<String, Bitmap> bitmaps;
+	private static HashMap<String, LineGraph> graphs;
 	private static HashMap<String, String> values;
 
 	public DataAdapter(Context context, int resource,
@@ -54,7 +56,7 @@ public class DataAdapter extends ArrayAdapter<Datastream>
 		super(context, resource, streams);
 		values = new HashMap<String, String>();
 		this.context = context;
-		bitmaps = new HashMap<String, Bitmap>();
+		graphs = new HashMap<String, LineGraph>();
 		this.resource = resource;
 		count = 0;
 	}
@@ -76,22 +78,26 @@ public class DataAdapter extends ArrayAdapter<Datastream>
 			vi = (LayoutInflater) getContext().getSystemService(inflater);
 			vi.inflate(resource, dataView, true);
 		}
+		
 		else
 		{
 			dataView = (LinearLayout) convertView;
 		}
-		String gurl = "https://api.xively.com/v2/feeds/" + d.getFeed()
-				+ "/datastreams/" + d.getName() + ".png?duration=" + d.getDur()
-				+ "&g=true&b=true&w=750";
-
+		
+		HistoricalData thData = new HistoricalData(d);
+		Line thLine = new Line(thData);
+		
+		
 		String url = "https://api.xively.com/v2/feeds/" + d.getFeed()
 				+ "/datastreams/" + d.getName() + ".json";
 
 		TextView val = (TextView) dataView.findViewById(R.id.Value);
 		TextView name = (TextView) dataView.findViewById(R.id.StreamName);
 
-		gra = (ImageView) dataView.findViewById(R.id.graph);
-
+		gra = (LineGraph) dataView.findViewById(R.id.linegraph);
+		gra.removeAllLines();
+		gra.addLine(thLine);
+		
 		name.setTypeface(thin);
 		val.setTypeface(Black);
 		
@@ -100,7 +106,6 @@ public class DataAdapter extends ArrayAdapter<Datastream>
 		
 		new JSONTask(val).execute(url);
 
-		download(gurl, gra);
 
 		name.setText(d.getName());
 
@@ -110,125 +115,8 @@ public class DataAdapter extends ArrayAdapter<Datastream>
 	public void clear()
 	{
 		super.clear();
-		bitmaps.clear();
+		graphs.clear();
 		values.clear();
-	}
-	
-
-	private Bitmap parseGraph(String gurl)
-	{
-		{
-			try
-			{
-				return BitmapFactory.decodeStream((InputStream) new URL(gurl)
-						.getContent());
-			} catch (MalformedURLException e)
-			{
-				e.printStackTrace();
-			} catch (IOException e)
-			{
-				e.printStackTrace();
-			}
-
-		}
-		return null;
-	}
-
-	public class dlImageTask extends AsyncTask<String, Void, Bitmap>
-	{
-		private String url;
-		private final WeakReference<ImageView> imageViewReference;
-
-		public dlImageTask(ImageView iv)
-		{
-			imageViewReference = new WeakReference<ImageView>(iv);
-		}
-
-		@Override
-		protected Bitmap doInBackground(String... params)
-		{
-			url = params[0];
-			Log.i("IMAGETASK", "Downloading Image");
-			return parseGraph(params[0]);
-		}
-
-		protected void onPostExecute(Bitmap bitmap)
-		{
-			if (isCancelled())
-			{
-				bitmap = null;
-			}
-
-			if (imageViewReference != null)
-			{
-				ImageView imageView = imageViewReference.get();
-				Log.i("POSTEXE", "Image Task post execute");
-				dlImageTask bitmapDownloaderTask = getBitmapDownloaderTask(imageView);
-				// Change bitmap only if this process is still associated
-				// with it
-
-				if (this == bitmapDownloaderTask)
-				{
-					Log.i("POSTEXE TRUE", "Image Task post execute true");
-					imageView.setImageBitmap(bitmap);
-					bitmaps.put(url, bitmap);
-					Log.i("HASHMAP", "Hashmap modified." + url);
-				}
-
-			}
-		}
-	}
-
-	public void download(String url, ImageView imageView)
-	{
-		if (cancelPotentialDownload(url, imageView))
-		{
-			dlImageTask task = new dlImageTask(imageView);
-			DownloadedDrawable downloadedDrawable = new DownloadedDrawable(task);
-			if (bitmaps.containsKey(url))
-				downloadedDrawable = new DownloadedDrawable(task,
-						bitmaps.get(url), context);
-			imageView.setImageDrawable(downloadedDrawable);
-			task.execute(url);
-		}
-	}
-
-	private boolean cancelPotentialDownload(String url, ImageView imageView)
-	{
-		dlImageTask bitmapDownloaderTask = getBitmapDownloaderTask(imageView);
-
-		if (bitmapDownloaderTask != null)
-		{
-			String bitmapUrl = bitmapDownloaderTask.url;
-			if ((bitmapUrl == null) || (!bitmapUrl.equals(url)))
-			{
-				bitmapDownloaderTask.cancel(true);
-			}
-			else
-			{
-				// The same URL is already being downloaded.
-				return false;
-			}
-		}
-		return true;
-	}
-
-	private static dlImageTask getBitmapDownloaderTask(ImageView imageView)
-	{
-		if (imageView != null)
-		{
-			Log.i("GETTASK", "IMAGEVIEW NOT NULL");
-			Drawable drawable = imageView.getDrawable();
-			if (drawable instanceof DownloadedDrawable)
-			{
-				DownloadedDrawable downloadedDrawable = (DownloadedDrawable) drawable;
-				Log.i("GETTASK", "RETURNED A TASK");
-				return downloadedDrawable.getBitmapDownloaderTask();
-
-			}
-		}
-		Log.i("GETTASK", "RETURNED NULL");
-		return null;
 	}
 
 	private class JSONTask extends AsyncTask<String, Void, String>
